@@ -32,18 +32,30 @@ export type ISyncAccountsResponse =
 export interface IUsageBillingPageArgs {
   readonly teamId: string
 }
+
+type AdminSubscription = {
+  readonly canEdit: true
+  readonly seats: number
+  readonly nextBillingDate: string
+  readonly expired: boolean
+  readonly cost: {
+    readonly totalCents: number
+    readonly perSeatCents: number
+  }
+  readonly billingEmail: string
+  readonly cardInfo: string
+}
+type MemberSubscription = {
+  readonly canEdit: false
+  readonly seats: number
+  readonly nextBillingDate: string
+  readonly expired: boolean
+  readonly cost: null
+  readonly billingEmail: null
+  readonly cardInfo: null
+}
 export interface IUsageBillingPageApiResponse {
-  readonly subscription: {
-    readonly seats: number
-    readonly nextBillingDate: string
-    readonly expired: boolean
-    readonly cost: {
-      readonly totalCents: number
-      readonly perSeatCents: number
-    }
-    readonly billingEmail: string
-    readonly cardInfo: string
-  } | null
+  readonly subscription: AdminSubscription | MemberSubscription | null
   readonly trial: {
     readonly startDate: string
     readonly endDate: string

@@ -264,7 +264,9 @@ def test_usage_billing_subscription_started(
         github_account_type="User",
         stripe_customer_id="cus_Ged32s2xnx12",
     )
-    AccountMembership.objects.create(account=account, user=user, role="member")
+    account_membership = AccountMembership.objects.create(
+        account=account, user=user, role="admin"
+    )
     StripeCustomerInformation.objects.create(
         customer_id=account.stripe_customer_id,
         subscription_id="sub_Gu1xedsfo1",
@@ -286,6 +288,7 @@ def test_usage_billing_subscription_started(
     res = authed_client.get(f"/v1/t/{account.id}/usage_billing")
     assert res.status_code == 200
     assert res.json()["subscription"] is not None
+    assert res.json()["subscription"]["canEdit"] is True
     assert (
         res.json()["subscription"]["nextBillingDate"]
         == datetime.datetime.fromtimestamp(period_end).isoformat()
@@ -296,6 +299,23 @@ def test_usage_billing_subscription_started(
     assert res.json()["subscription"]["cost"]["perSeatCents"] == 499
     assert res.json()["subscription"]["billingEmail"] == "accounting@acme-corp.com"
     assert res.json()["subscription"]["cardInfo"] == "Mastercard (4242)"
+
+    account_membership.role = "member"
+    account_membership.save()
+    res = authed_client.get(f"/v1/t/{account.id}/usage_billing")
+    assert res.status_code == 200
+    assert res.json()["subscription"] is not None
+    assert res.json()["subscription"]["canEdit"] is False
+    assert (
+        res.json()["subscription"]["nextBillingDate"]
+        == datetime.datetime.fromtimestamp(period_end).isoformat()
+    )
+    assert res.json()["subscription"]["expired"] is False
+    assert res.json()["subscription"]["seats"] == 3
+    # we should hide the following information
+    assert res.json()["subscription"]["cost"] is None
+    assert res.json()["subscription"]["billingEmail"] is None
+    assert res.json()["subscription"]["cardInfo"] is None
 
 
 @pytest.mark.django_db
@@ -531,6 +551,45 @@ def test_cancel_subscription_not_admin(
 
 
 @pytest.mark.django_db
+def test_fetch_proration_non_admin(
+    authed_client: Client, user: User, other_user: User, mocker: Any
+) -> None:
+    """
+    Only admins should be able to fetch proration information.
+    """
+    account = Account.objects.create(
+        github_installation_id=377930,
+        github_account_id=900966,
+        github_account_login=user.github_login,
+        github_account_type="User",
+        stripe_customer_id="cus_Ged32s2xnx12",
+    )
+    AccountMembership.objects.create(account=account, user=user, role="member")
+    StripeCustomerInformation.objects.create(
+        customer_id=account.stripe_customer_id,
+        subscription_id="sub_Gu1xedsfo1",
+        plan_id="plan_G2df31A4G5JzQ",
+        payment_method_id="pm_22dldxf3",
+        customer_email="accounting@acme-corp.com",
+        customer_balance=0,
+        customer_created=1585781308,
+        payment_method_card_brand="mastercard",
+        payment_method_card_exp_month="03",
+        payment_method_card_exp_year="32",
+        payment_method_card_last4="4242",
+        plan_amount=499,
+        subscription_quantity=3,
+        subscription_start_date=1585781784,
+        subscription_current_period_start=1650581784,
+        subscription_current_period_end=1658357784,
+    )
+    res = authed_client.post(
+        f"/v1/t/{account.id}/fetch_proration", data=dict(subscriptionQuantity=12)
+    )
+    assert res.status_code == 403
+
+
+@pytest.mark.django_db
 def test_activity(authed_client: Client, user: User,) -> None:
     user_account = Account.objects.create(
         github_installation_id=377930,
@@ -619,7 +678,9 @@ def test_modify_payment_details(authed_client: Client, user: User, mocker: Any) 
         github_account_type="User",
         stripe_customer_id="cus_Ged32s2xnx12",
     )
-    AccountMembership.objects.create(account=user_account, user=user, role="member")
+    account_membership = AccountMembership.objects.create(
+        account=user_account, user=user, role="admin"
+    )
 
     class FakeCheckoutSession:
         id = "cs_tgn3bJHRrXhqgdVSc4tsY"
@@ -631,6 +692,11 @@ def test_modify_payment_details(authed_client: Client, user: User, mocker: Any) 
     assert res.status_code == 200
     assert res.json()["stripeCheckoutSessionId"] == FakeCheckoutSession.id
     assert res.json()["stripePublishableApiKey"] == settings.STRIPE_PUBLISHABLE_API_KEY
+
+    account_membership.role = "member"
+    account_membership.save()
+    res = authed_client.post(f"/v1/t/{user_account.id}/modify_payment_details")
+    assert res.status_code == 403
 
 
 @pytest.mark.django_db

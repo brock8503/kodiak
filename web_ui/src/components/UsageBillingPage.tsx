@@ -21,6 +21,7 @@ import sub from "date-fns/sub"
 import sortBy from "lodash/sortBy"
 import { useLocation, useHistory, useParams } from "react-router-dom"
 import { loadStripe } from "@stripe/stripe-js"
+import { ToolTip } from "./ToolTip"
 import * as settings from "../settings"
 import debounce from "lodash/debounce"
 import { GoLinkExternal } from "react-icons/go"
@@ -635,17 +636,19 @@ function SubscriptionUpsellPrompt({
 interface IActiveSubscriptionProps {
   readonly seats: number
   readonly nextBillingDate: string
-  readonly billingEmail: string
+  readonly billingEmail: string | null
+  readonly canEdit: boolean
   readonly cost: {
     readonly totalCents: number
     readonly perSeatCents: number
-  }
+  } | null
   readonly modifySubscription: () => void
   readonly teamId: string
 }
 function ActiveSubscription({
   seats,
   cost,
+  canEdit,
   billingEmail,
   nextBillingDate,
   modifySubscription,
@@ -679,38 +682,67 @@ function ActiveSubscription({
         <Col md={3}>
           <b>Cost</b>
         </Col>
-        <Col>
-          <span className="mr-4">{formatCents(cost.totalCents)} / month</span>
-          <span>
-            ({formatCents(cost.perSeatCents)} / seat ⨉ {seats} seats)
-          </span>
-        </Col>
+        {cost != null && canEdit ? (
+          <Col>
+            <span className="mr-4">{formatCents(cost.totalCents)} / month</span>
+            <span>
+              ({formatCents(cost.perSeatCents)} / seat ⨉ {seats} seats)
+            </span>
+          </Col>
+        ) : (
+          <Col>
+            <ToolTip content="Only GitHub account admins can view this information.">
+              <i>(hidden)</i>
+            </ToolTip>
+          </Col>
+        )}
       </Row>
       <Row>
         <Col md={3}>
           <b>Billing Email</b>
         </Col>
-        <Col>{billingEmail}</Col>
+        <Col>
+          <ToolTip content="Only GitHub account admins can view this information." enabled={!canEdit}>
+            <span>{billingEmail != null && canEdit ? billingEmail : <i>(hidden)</i>}</span>
+          </ToolTip>
+        </Col>
       </Row>
       <Row>
         <Col md={3}>
           <b>Billing History</b>
         </Col>
         <Col>
-          <a href={settings.getStripeSelfServeUrl(teamId)}>
-            view billing history
-            <GoLinkExternal className="pl-1" />
-          </a>
+          {canEdit ? (
+            <a href={settings.getStripeSelfServeUrl(teamId)}>
+              view billing history
+              <GoLinkExternal className="pl-1" />
+            </a>
+          ) : (
+            <ToolTip content="Only GitHub account admins can view this information.">
+              <i>(hidden)</i>
+            </ToolTip>
+          )}
         </Col>
       </Row>
       <Row className="mt-3">
         <Col>
-          <Button variant="dark" size="sm" onClick={modifySubscription}>
-            Modify Subscription
-          </Button>
+          <ToolTip content="Only GitHub account admins can modify a subscription." enabled={!canEdit}>
+            <div className="d-inline-block">
+              <Button
+                variant="dark"
+                size="sm"
+                onClick={modifySubscription}
+                disabled={!canEdit}>
+                Modify Subscription
+              </Button>
+            </div>
+          </ToolTip>
         </Col>
         <Col sm={12}>
           <p className="small mb-0 mt-2">
+            {!canEdit ? <>Only GitHub account admins can modify a subscription. To refresh
+            your membership status, please login again.
+            <br /></> : null}
             Send us an email at{" "}
             <a href="mailto:support@kodiakhq.com">support@kodiakhq.com</a> if
             you need any assistance.
@@ -753,6 +785,7 @@ function Subscription({
         <Row>
           {subscription != null && !subscription.expired ? (
             <ActiveSubscription
+              canEdit={subscription.canEdit}
               cost={subscription.cost}
               seats={subscription.seats}
               nextBillingDate={subscription.nextBillingDate}

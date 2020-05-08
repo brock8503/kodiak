@@ -62,17 +62,26 @@ def usage_billing(request: HttpRequest, team_id: str) -> HttpResponse:
         )
     stripe_customer_info = account.stripe_customer_info()
     if stripe_customer_info:
-        subscription = dict(
-            seats=stripe_customer_info.subscription_quantity,
-            nextBillingDate=stripe_customer_info.next_billing_date,
-            expired=stripe_customer_info.expired,
-            cost=dict(
+        can_edit = request.user.can_edit(account)
+        cost = None
+        billing_email = None
+        card_info = None
+        if can_edit:
+            cost = dict(
                 totalCents=stripe_customer_info.plan_amount
                 * stripe_customer_info.subscription_quantity,
                 perSeatCents=stripe_customer_info.plan_amount,
-            ),
-            billingEmail=stripe_customer_info.customer_email,
-            cardInfo=f"{stripe_customer_info.payment_method_card_brand.title()} ({stripe_customer_info.payment_method_card_last4})",
+            )
+            billing_email = stripe_customer_info.customer_email
+            card_info = f"{stripe_customer_info.payment_method_card_brand.title()} ({stripe_customer_info.payment_method_card_last4})"
+        subscription = dict(
+            canEdit=can_edit,
+            seats=stripe_customer_info.subscription_quantity,
+            nextBillingDate=stripe_customer_info.next_billing_date,
+            expired=stripe_customer_info.expired,
+            cost=cost,
+            billingEmail=billing_email,
+            cardInfo=card_info,
         )
     return JsonResponse(
         dict(
@@ -288,6 +297,8 @@ def modify_payment_details(request: HttpRequest, team_id: str) -> HttpResponse:
     account = get_object_or_404(
         Account.objects.filter(memberships__user=request.user), id=team_id
     )
+    if not request.user.can_edit(account):
+        raise PermissionDenied
     session = stripe.checkout.Session.create(
         client_reference_id=account.id,
         customer=account.stripe_customer_id or None,
@@ -323,6 +334,8 @@ def fetch_proration(request: HttpRequest, team_id: str) -> HttpResponse:
     account = get_object_or_404(
         Account.objects.filter(memberships__user=request.user), id=team_id
     )
+    if not request.user.can_edit(account):
+        raise PermissionDenied
     subscription_quantity = int(request.POST["subscriptionQuantity"])
 
     customer_info = account.stripe_customer_info()
