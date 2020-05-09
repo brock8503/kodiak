@@ -55,6 +55,7 @@ type MemberSubscription = {
   readonly cardInfo: null
 }
 export interface IUsageBillingPageApiResponse {
+  readonly canSubscribe: boolean
   readonly subscription: AdminSubscription | MemberSubscription | null
   readonly trial: {
     readonly startDate: string
