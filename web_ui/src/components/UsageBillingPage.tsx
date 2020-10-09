@@ -28,8 +28,8 @@ import debounce from "lodash/debounce"
 import { GoLinkExternal } from "react-icons/go"
 
 const DEFAULT_CURRENCY = "usd"
-const MONTHLY_COST = formatCents(settings.monthlyCost, DEFAULT_CURRENCY)
-const ANNUAL_COST = formatCents(settings.annualCost, DEFAULT_CURRENCY)
+const MONTHLY_COST = formatCents(settings.monthlyCost)
+const ANNUAL_COST = formatCents(settings.annualCost)
 
 interface IQuestionProps {
   readonly content: string | React.ReactNode
@@ -134,10 +134,10 @@ function UsageAndBillingContainer({ children }: { children: React.ReactNode }) {
   )
 }
 
-function formatCents(cents: number, currency: string): string {
+function formatCents(cents: number): string {
   const formatter = new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency,
+    currency: "usd",
   })
   return formatter.format(cents / 100)
 }
@@ -158,7 +158,7 @@ function formatFromNow(dateString: string): string {
 }
 
 function FormatDate({ date }: { date: string }) {
-  return <>{formatDate(parseISO(date), "y-MM-dd kk:mm O")}</>
+  return <>{formatDate(parseISO(date), "y-MM-dd")}</>
 }
 
 interface IInstallCompleteModalProps {
@@ -309,7 +309,7 @@ function StartSubscriptionModal({
       }
     })
   }
-  const formatCost = (cents: number) => formatCents(cents, DEFAULT_CURRENCY)
+  const formatCost = (cents: number) => formatCents(cents)
   const seatCost =
     period === "year" ? settings.annualCost : settings.monthlyCost
   const costCents = seats * seatCost
@@ -444,7 +444,7 @@ function ManageSubscriptionModal({
   const seatsRef = React.useRef(0)
   const subscriptionPeriodRef = React.useRef<"month" | "year">("month")
 
-  const formatCost = (cents: number) => formatCents(cents, DEFAULT_CURRENCY)
+  const formatCost = (cents: number) => formatCents(cents)
 
   React.useEffect(() => {
     seatsRef.current = seats
@@ -1238,6 +1238,62 @@ function Subcription({
   readonly modifySubscription: () => void
   readonly teamId: string
 }) {
+  const [showCostDetails, setShowCostDetails] = React.useState(false)
+  const toggleCostDetails = () => {
+    setShowCostDetails(s => !s)
+  }
+  const renewalDate: string = formatDate(
+    new Date(subscription.nextBillingDate),
+    "MMMM do, y",
+  )
+  const discounts = [
+    {
+      id: "89128938919839123123",
+      name: "Half Price",
+      percentOff: 0.5,
+      duration: "forever",
+    },
+  ]
+
+  const subscriptionInfo: {
+    period: "monthly" | "annual"
+    seats: number | "unlimited"
+    totalPriceCents: number
+    unitPriceCents: number
+    unitName: string
+    unitCount: number
+    totalUnitPriceCents: number
+    discounts: [
+      {
+        priceCents: number
+        name: string
+      },
+    ]
+    renewalDate: Date
+  } = {
+    period: "monthly",
+    seats: 8,
+    totalPriceCents: 1996,
+    unitPriceCents: 499,
+    unitName: "Kodiak Seat License",
+    unitCount: 8,
+    totalUnitPriceCents: 499 * 8,
+    discounts: [
+      {
+        priceCents: 1996,
+        name: "Half Price (50% off forever)",
+      },
+    ],
+    renewalDate: new Date("2020-11-05"),
+  }
+
+  const totalCostFormatted = formatCents(subscriptionInfo.totalPriceCents)
+  const planIntervalFormatted =
+    subscriptionInfo.period === "monthly" ? "Month" : "Year"
+  const renewalDateFormatted = formatDate(
+    new Date(subscriptionInfo.renewalDate),
+    "MMMM do, y",
+  )
   return (
     <Row>
       <Col lg={8}>
@@ -1251,53 +1307,88 @@ function Subcription({
             </Card.Title>
             <Form.Group>
               <Form.Label className="font-weight-bold">Seats</Form.Label>
-              <p className="mb-0">{subscription.seats} seats</p>
+              <p className="mb-0">{subscriptionInfo.seats} seats</p>
               <Form.Text className="text-muted">
                 An active user consumes one seat per billing period.
               </Form.Text>
             </Form.Group>
             <Form.Group>
-              <Form.Label className="font-weight-bold">
-                Next Billing Date
-              </Form.Label>
-              <p>
-                <FormatDate date={subscription.nextBillingDate} />
-              </p>
-            </Form.Group>
-            <Form.Group>
               <Form.Label className="font-weight-bold">Cost</Form.Label>
-              <p>
-                {subscription.seats} seats ⨉{" "}
-                {formatCents(
-                  subscription.cost.perSeatCents,
-                  subscription.cost.currency,
-                )}{" "}
-                / seat ={" "}
-                {formatCents(
-                  subscription.cost.totalCents,
-                  subscription.cost.currency,
-                )}{" "}
-                / {subscription.cost.planInterval}
-              </p>
+
+              <div>
+                {" "}
+                {totalCostFormatted} / {planIntervalFormatted}
+              </div>
+              <Form.Text></Form.Text>
+              <Form.Text className="text-muted">
+                Renews on{" "}
+                <span className="text-body">{renewalDateFormatted}</span>.
+              </Form.Text>
+
+              <Button
+                className="p-0"
+                variant="link"
+                size="sm"
+                onClick={toggleCostDetails}>
+                {showCostDetails ? "Hide" : "Show"} cost details
+              </Button>
+              {showCostDetails && (
+                <div className="bg-light w-fit-content rounded p-2 mt-1">
+                  <div className="d-flex">
+                    <div className="mr-4">
+                      {subscriptionInfo.unitName} ({subscriptionInfo.unitCount})
+                    </div>
+                    <div className="ml-auto">
+                      {formatCents(subscriptionInfo.totalUnitPriceCents)}
+                    </div>
+                  </div>
+                  <div className="d-flex small text-muted">
+                    <div className="mr-4" />
+                    <div className="ml-auto">
+                      ({formatCents(subscriptionInfo.unitPriceCents)}) each
+                    </div>
+                  </div>
+                  {subscriptionInfo.discounts.map(discount => (
+                    <div className="d-flex" key={discount.name}>
+                      <div className="mr-4">{discount.name}</div>
+                      <div className="ml-auto">
+                        {formatCents(-discount.priceCents)}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="d-flex border-top mt-2">
+                    <div className="mr-4 font-weight-bold">Total</div>
+                    <div className="ml-auto">{totalCostFormatted}</div>
+                  </div>
+                </div>
+              )}
             </Form.Group>
             <Form.Group>
               <Form.Label className="font-weight-bold">
-                Billing History
+                Billing Settings
               </Form.Label>
               <p>
-                <a href={settings.getStripeSelfServeUrl(teamId)}>
-                  view billing history
-                  <GoLinkExternal className="pl-1" />
-                </a>
+                add or remove seats, update payment methods, or view billing
+                history.
               </p>
+              <div>
+                <Button
+                  variant="dark"
+                  size="sm"
+                  as="a"
+                  className="text-decoration-none"
+                  href={settings.getStripeSelfServeUrl(teamId)}
+                  disabled={!subscription?.viewerCanModify}>
+                  manage billing settings
+                </Button>
+              </div>
+
+              {/* <Form.Text className="text-muted">
+                add or remove seats, update payment method, or view billing
+                history.
+              </Form.Text> */}
             </Form.Group>
-            <Button
-              variant="dark"
-              size="sm"
-              onClick={modifySubscription}
-              disabled={!subscription?.viewerCanModify}>
-              Modify Subscription
-            </Button>
             {!subscription?.viewerCanModify && (
               <Form.Text className="text-muted">
                 You must be an organization owner to modify the subscription.
