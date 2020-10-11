@@ -24,10 +24,7 @@ import sortBy from "lodash/sortBy"
 import { useLocation, useHistory, useParams } from "react-router-dom"
 import { loadStripe } from "@stripe/stripe-js"
 import * as settings from "../settings"
-import debounce from "lodash/debounce"
-import { GoLinkExternal } from "react-icons/go"
 
-const DEFAULT_CURRENCY = "usd"
 const MONTHLY_COST = formatCents(settings.monthlyCost)
 const ANNUAL_COST = formatCents(settings.annualCost)
 
@@ -402,25 +399,6 @@ function StartSubscriptionModal({
       </Modal.Body>
     </Modal>
   )
-}
-
-type IProrationAmount =
-  | { kind: "loading" }
-  | { kind: "failed" }
-  | { kind: "success"; cost: number }
-
-interface IManageSubscriptionModalProps {
-  readonly show: boolean
-  readonly onClose: (props?: { reload?: boolean }) => void
-  readonly seatUsage: number
-  readonly currentSeats: number
-  readonly billingEmail: string
-  readonly cardInfo: string
-  readonly cost: {
-    readonly totalCents: number
-    readonly perSeatCents: number
-    readonly planInterval: "month" | "year"
-  }
 }
 
 function Plan({
@@ -984,19 +962,6 @@ function Subcription({
   const toggleCostDetails = () => {
     setShowCostDetails(s => !s)
   }
-  const renewalDate: string = formatDate(
-    new Date(subscription.nextBillingDate),
-    "MMMM do, y",
-  )
-  const discounts = [
-    {
-      id: "89128938919839123123",
-      name: "Half Price",
-      percentOff: 0.5,
-      duration: "forever",
-    },
-  ]
-
   const subscriptionInfo: {
     period: "monthly" | "annual"
     seats: number | "unlimited"
