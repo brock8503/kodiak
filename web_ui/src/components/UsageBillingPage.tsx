@@ -311,7 +311,6 @@ function StartSubscriptionModal({
       }
     })
   }
-  const formatCost = (cents: number) => formatCents(cents)
   const seatCost =
     period === "year" ? settings.annualCost : settings.monthlyCost
   const costCents = seats * seatCost
@@ -375,11 +374,11 @@ function StartSubscriptionModal({
               type="text"
               required
               disabled
-              value={formatCost(costCents)}
+              value={formatCents(costCents)}
             />
             <Form.Text className="text-muted">
               Billed {formatPeriod(period)}. <b>{seats} seat(s) </b>
-              at <b>{formatCost(seatCost)}/seat</b>.{" "}
+              at <b>{formatCents(seatCost)}/seat</b>.{" "}
             </Form.Text>
           </Form.Group>
           <Button
