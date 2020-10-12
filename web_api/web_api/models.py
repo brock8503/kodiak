@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import locale
 import logging
 import time
 import uuid
@@ -1170,8 +1171,6 @@ class StripeDiscount(models.Model):
         db_table = "stripe_discount"
 
     def get_display_name(self) -> str:
-        import locale
-
         locale.setlocale(locale.LC_ALL, "")
 
         if self.percent_off:
