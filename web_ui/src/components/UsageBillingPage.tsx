@@ -59,8 +59,14 @@ interface IUsageBillingData {
     readonly cost: {
       readonly totalCents: number
       readonly perSeatCents: number
-      readonly currency: string
+      readonly subtotalCents: number
+      readonly planName: string
       readonly planInterval: "month" | "year"
+      readonly discounts: readonly {
+        id: string
+        discountCents: number
+        name: string
+      }[]
     }
     readonly billingEmail: string
     readonly contactEmails?: string
@@ -73,7 +79,6 @@ interface IUsageBillingData {
       readonly postalCode?: string
       readonly state?: string
     }
-    readonly cardInfo: string
     readonly viewerIsOrgOwner: boolean
     readonly viewerCanModify: boolean
     readonly limitBillingAccessToOwners: boolean
@@ -927,7 +932,7 @@ function LimitBillingAccessForm({
   )
 }
 
-function Subcription({
+function Subscription({
   subscription,
   teamId,
 }: {
@@ -938,8 +943,14 @@ function Subcription({
     readonly cost: {
       readonly totalCents: number
       readonly perSeatCents: number
-      readonly currency: string
+      readonly subtotalCents: number
+      readonly planName: string
       readonly planInterval: "month" | "year"
+      readonly discounts: readonly {
+        id: string
+        discountCents: number
+        name: string
+      }[]
     }
     readonly billingEmail: string
     readonly contactEmails?: string
@@ -962,43 +973,12 @@ function Subcription({
   const toggleCostDetails = () => {
     setShowCostDetails(s => !s)
   }
-  const subscriptionInfo: {
-    period: "monthly" | "annual"
-    seats: number | "unlimited"
-    totalPriceCents: number
-    unitPriceCents: number
-    unitName: string
-    unitCount: number
-    totalUnitPriceCents: number
-    discounts: [
-      {
-        priceCents: number
-        name: string
-      },
-    ]
-    renewalDate: Date
-  } = {
-    period: "monthly",
-    seats: 8,
-    totalPriceCents: 1996,
-    unitPriceCents: 499,
-    unitName: "Kodiak Seat License",
-    unitCount: 8,
-    totalUnitPriceCents: 499 * 8,
-    discounts: [
-      {
-        priceCents: 1996,
-        name: "Half Price (50% off forever)",
-      },
-    ],
-    renewalDate: new Date("2020-11-05"),
-  }
 
-  const totalCostFormatted = formatCents(subscriptionInfo.totalPriceCents)
+  const totalCostFormatted = formatCents(subscription.cost.totalCents)
   const planIntervalFormatted =
-    subscriptionInfo.period === "monthly" ? "Month" : "Year"
+    subscription.cost.planInterval === "month" ? "Month" : "Year"
   const renewalDateFormatted = formatDate(
-    new Date(subscriptionInfo.renewalDate),
+    new Date(subscription.nextBillingDate),
     "MMMM do, y",
   )
   return (
@@ -1014,7 +994,7 @@ function Subcription({
             </Card.Title>
             <Form.Group>
               <Form.Label className="font-weight-bold">Seats</Form.Label>
-              <p className="mb-0">{subscriptionInfo.seats} seats</p>
+              <p className="mb-0">{subscription.seats} seats</p>
               <Form.Text className="text-muted">
                 An active user consumes one seat per billing period.
               </Form.Text>
@@ -1043,29 +1023,29 @@ function Subcription({
                 <div className="bg-light w-fit-content rounded p-2 mt-1">
                   <div className="d-flex">
                     <div className="mr-4">
-                      {subscriptionInfo.unitName} ({subscriptionInfo.unitCount})
+                      {subscription.cost.planName} ({subscription.seats})
                     </div>
                     <div className="ml-auto">
-                      {formatCents(subscriptionInfo.totalUnitPriceCents)}
+                      {formatCents(subscription.cost.subtotalCents)}
                     </div>
                   </div>
                   <div className="d-flex small text-muted">
                     <div className="mr-4" />
                     <div className="ml-auto">
-                      ({formatCents(subscriptionInfo.unitPriceCents)}) each
+                      {formatCents(subscription.cost.perSeatCents)} each
                     </div>
                   </div>
-                  {subscriptionInfo.discounts.map(discount => (
+                  {subscription.cost.discounts.map(discount => (
                     <div className="d-flex" key={discount.name}>
                       <div className="mr-4">{discount.name}</div>
                       <div className="ml-auto">
-                        {formatCents(-discount.priceCents)}
+                        {formatCents(-discount.discountCents)}
                       </div>
                     </div>
                   ))}
 
-                  <div className="d-flex border-top mt-2">
-                    <div className="mr-4 font-weight-bold">Total</div>
+                  <div className="d-flex border-top mt-2 font-weight-bold">
+                    <div className="mr-4">Total</div>
                     <div className="ml-auto">{totalCostFormatted}</div>
                   </div>
                 </div>
@@ -1302,7 +1282,7 @@ function UsageBillingPageInner(props: IUsageBillingPageInnerProps) {
                 trial={data.trial}
               />
             ) : (
-              <Subcription subscription={data.subscription} teamId={teamId} />
+              <Subscription subscription={data.subscription} teamId={teamId} />
             )}
           </>
         ) : (

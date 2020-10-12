@@ -41,8 +41,14 @@ export interface IUsageBillingPageApiResponse {
     readonly cost: {
       readonly totalCents: number
       readonly perSeatCents: number
-      readonly currency: string
+      readonly subtotalCents: number
+      readonly planName: string
       readonly planInterval: "month" | "year"
+      readonly discounts: readonly {
+        id: string
+        discountCents: number
+        name: string
+      }[]
     }
     readonly billingEmail: string
     readonly customerName?: string
@@ -54,7 +60,6 @@ export interface IUsageBillingPageApiResponse {
       readonly postalCode?: string
       readonly state?: string
     }
-    readonly cardInfo: string
     readonly viewerIsOrgOwner: boolean
     readonly viewerCanModify: boolean
     readonly limitBillingAccessToOwners: boolean
