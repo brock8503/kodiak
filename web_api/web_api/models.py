@@ -909,20 +909,10 @@ class StripeCustomerInformation(models.Model):
         db_index=True,
         help_text="Unique identifier for Stripe Customer object.",
     )
-    subscription_id = models.CharField(
-        max_length=255,
-        unique=True,
-        db_index=True,
-        help_text="Unique identifier for Stripe Subscription object.",
-    )
-    plan_id = models.CharField(
+    _deprecated_payment_method_id = models.CharField(
         max_length=255,
         db_index=True,
-        help_text="Unique identifier for Stripe Plan object.",
-    )
-    payment_method_id = models.CharField(
-        max_length=255,
-        db_index=True,
+        db_column="payment_method_id",
         help_text="Unique identifier for Stripe PaymentMethod object.",
     )
 
@@ -937,9 +927,10 @@ class StripeCustomerInformation(models.Model):
     customer_created = models.IntegerField(
         help_text="Time at which the object was created. Measured in seconds since the Unix epoch."
     )
-    customer_currency = models.CharField(
+    _deprecated_customer_currency = models.CharField(
         max_length=255,
         null=True,
+        db_column="customer_currency",
         help_text="Three-letter ISO code for the currency the customer can be charged in for recurring billing purposes.",
     )
     customer_name = models.CharField(
@@ -973,26 +964,37 @@ class StripeCustomerInformation(models.Model):
     )
 
     # https://stripe.com/docs/api/payment_methods/object
-    payment_method_card_brand = models.CharField(
+    _deprecated_payment_method_card_brand = models.CharField(
         max_length=255,
         null=True,
+        db_column="payment_method_card_brand",
         help_text="Card brand. Can be `amex`, `diners`, `discover`, `jcb`, `mastercard`, `unionpay`, `visa`, or `unknown`.",
     )
-    payment_method_card_exp_month = models.CharField(
+    _deprecated_payment_method_card_exp_month = models.CharField(
         null=True,
+        db_column="payment_method_card_exp_month",
         help_text="Two-digit number representing the card’s expiration month.",
         max_length=255,
     )
-    payment_method_card_exp_year = models.CharField(
+    _deprecated_payment_method_card_exp_year = models.CharField(
         null=True,
+        db_column="payment_method_card_exp_year",
         help_text="Four-digit number representing the card’s expiration year.",
         max_length=255,
     )
-    payment_method_card_last4 = models.CharField(
-        max_length=255, null=True, help_text="The last four digits of the card."
+    _deprecated_payment_method_card_last4 = models.CharField(
+        max_length=255,
+        null=True,
+        db_column="payment_method_card_last4",
+        help_text="The last four digits of the card.",
     )
 
     # https://stripe.com/docs/api/plans/object
+    plan_id = models.CharField(
+        max_length=255,
+        db_index=True,
+        help_text="Unique identifier for Stripe Plan object.",
+    )
     plan_amount = models.IntegerField(
         help_text="The amount in cents to be charged on the interval specified."
     )
@@ -1005,8 +1007,19 @@ class StripeCustomerInformation(models.Model):
         null=True,
         help_text="The number of intervals (specified in the `interval` attribute) between subscription billings. For example, `interval=month` and `interval_count=3` bills every 3 months.",
     )
+    plan_name = models.CharField(max_length=255)
+
+    upcoming_invoice_total = models.IntegerField()
+    upcoming_invoice_subtotal = models.IntegerField()
 
     # https://stripe.com/docs/api/subscriptions/object
+    subscription_id = models.CharField(
+        max_length=255,
+        unique=True,
+        db_index=True,
+        help_text="Unique identifier for Stripe Subscription object.",
+    )
+
     subscription_quantity = models.IntegerField(
         help_text="The quantity of the plan to which the customer is subscribed. For example, if your plan is $10/user/month, and your customer has 5 users, you could pass 5 as the quantity to have the customer charged $50 (5 x $10) monthly. Only set if the subscription contains a single plan."
     )
@@ -1024,54 +1037,48 @@ class StripeCustomerInformation(models.Model):
         db_table = "stripe_customer_information"
 
     def update_from(
-        self,
-        subscription: Optional[stripe.Subscription] = None,
-        customer: Optional[stripe.Customer] = None,
-        payment_method: Optional[stripe.PaymentMethod] = None,
+        self, subscription: stripe.Subscription, customer: stripe.Customer,
     ) -> None:
-        if customer is not None:
-            self.customer_email = customer.email
-            self.customer_balance = customer.balance
-            self.customer_created = customer.created
-            self.customer_currency = customer.currency
-            self.customer_name = customer.name
-            self.customer_address_line1 = (
-                customer.address.line1 if customer.address else None
-            )
-            self.customer_address_city = (
-                customer.address.city if customer.address else None
-            )
-            self.customer_address_country = (
-                customer.address.country if customer.address else None
-            )
-            self.customer_address_line2 = (
-                customer.address.line2 if customer.address else None
-            )
-            self.customer_address_postal_code = (
-                customer.address.postal_code if customer.address else None
-            )
-            self.customer_address_state = (
-                customer.address.state if customer.address else None
-            )
 
-        if payment_method is not None:
-            self.payment_method_id = payment_method.id
-            self.payment_method_card_brand = payment_method.card.brand
-            self.payment_method_card_exp_month = payment_method.card.exp_month
-            self.payment_method_card_exp_year = payment_method.card.exp_year
-            self.payment_method_card_last4 = payment_method.card.last4
+        product = stripe.Product.retrieve(subscription.plan.product)
+        upcoming_invoice = stripe.Invoice.upcoming(subscription=subscription.id)
 
-        if subscription is not None:
-            self.plan_id = subscription.plan.id
-            self.plan_amount = subscription.plan.amount
-            self.plan_interval = subscription.plan.interval
-            self.plan_interval_count = subscription.plan.interval_count
+        self.customer_email = customer.email
+        self.customer_balance = customer.balance
+        self.customer_created = customer.created
+        self.customer_name = customer.name
+        self.customer_address_line1 = (
+            customer.address.line1 if customer.address else None
+        )
+        self.customer_address_city = customer.address.city if customer.address else None
+        self.customer_address_country = (
+            customer.address.country if customer.address else None
+        )
+        self.customer_address_line2 = (
+            customer.address.line2 if customer.address else None
+        )
+        self.customer_address_postal_code = (
+            customer.address.postal_code if customer.address else None
+        )
+        self.customer_address_state = (
+            customer.address.state if customer.address else None
+        )
 
-            self.subscription_id = subscription.id
-            self.subscription_quantity = subscription.quantity
-            self.subscription_start_date = subscription.start_date
-            self.subscription_current_period_end = subscription.current_period_end
-            self.subscription_current_period_start = subscription.current_period_start
+        self.plan_id = subscription.plan.id
+        self.plan_amount = subscription.plan.amount
+        self.plan_interval = subscription.plan.interval
+        self.plan_interval_count = subscription.plan.interval_count
+        self.plan_name = product.name
+
+        self.subscription_id = subscription.id
+        self.subscription_quantity = subscription.quantity
+        self.subscription_start_date = subscription.start_date
+        self.subscription_current_period_end = subscription.current_period_end
+        self.subscription_current_period_start = subscription.current_period_start
+
+        self.upcoming_invoice_total = upcoming_invoice.total
+        self.upcoming_invoice_subtotal = upcoming_invoice.subtotal
+
         self.save()
         self.get_account().update_bot()
 
@@ -1138,3 +1145,49 @@ class StripeCustomerInformation(models.Model):
             for proration in invoice.lines.data
             if proration.period.start - proration_date <= 1
         )
+
+
+class StripeDiscount(models.Model):
+    id = models.CharField(
+        max_length=255,
+        primary_key=True,
+        unique=True,
+        db_index=True,
+        help_text="Unique identifier for Stripe Discount object.",
+    )
+
+    amount = models.IntegerField(
+        help_text="amount is cents this discount counts for the next invoice."
+    )
+    customer_id = models.CharField(max_length=255, db_index=True)
+    duration = models.CharField(max_length=255)
+    duration_in_months = models.IntegerField(null=True)
+    name = models.CharField(max_length=255)
+    percent_off = models.FloatField(null=True)
+    amount_off = models.IntegerField(null=True)
+
+    class Meta:
+        db_table = "stripe_discount"
+
+    def get_display_name(self) -> str:
+        import locale
+
+        locale.setlocale(locale.LC_ALL, "")
+
+        if self.percent_off:
+            amount_off = f"{self.percent_off}% off"
+        elif self.amount_off:
+            formatted = locale.currency(self.amount_off / 100)
+            amount_off = f"{formatted} off"
+        else:
+            assert False
+        if self.duration == "forever":
+            detail = f"({amount_off} forever)"
+        elif self.duration == "once":
+            detail = f"({amount_off})"
+        elif self.duration == "repeating":
+            assert self.duration_in_months
+            detail = f"({amount_off} for {self.duration_in_months} months)"
+        else:
+            assert False
+        return f"{self.name} {detail}"

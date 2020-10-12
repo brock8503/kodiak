@@ -1,5 +1,4 @@
 import logging
-import time
 from dataclasses import asdict, dataclass
 from typing import Optional, Union, cast
 from urllib.parse import parse_qsl
@@ -21,13 +20,14 @@ from typing_extensions import Literal
 from yarl import URL
 
 from web_api import auth
-from web_api.exceptions import BadRequest, PermissionDenied, UnprocessableEntity
+from web_api.exceptions import BadRequest, PermissionDenied
 from web_api.models import (
     Account,
     Address,
     AnonymousUser,
     PullRequestActivity,
     StripeCustomerInformation,
+    StripeDiscount,
     SyncAccountsError,
     User,
     UserPullRequestActivity,
@@ -48,9 +48,6 @@ def get_account_or_404(*, team_id: str, user: User) -> Account:
 @auth.login_required
 def ping(request: HttpRequest) -> HttpResponse:
     return JsonResponse({"ok": True})
-
-
-DEFAULT_CURRENCY = "usd"
 
 
 @auth.login_required
@@ -85,22 +82,28 @@ def usage_billing(request: HttpRequest, team_id: str) -> HttpResponse:
         plan_interval = (
             "year" if stripe_customer_info.plan_interval == "year" else "month"
         )
+        discounts = StripeDiscount.objects.filter(
+            customer_id=account.stripe_customer_id
+        )
         subscription = dict(
             seats=stripe_customer_info.subscription_quantity,
             nextBillingDate=stripe_customer_info.next_billing_date,
             expired=stripe_customer_info.expired,
             cost=dict(
-                totalCents=stripe_customer_info.plan_amount
-                * stripe_customer_info.subscription_quantity,
+                totalCents=stripe_customer_info.upcoming_invoice_total,
                 perSeatCents=stripe_customer_info.plan_amount,
-                currency=stripe_customer_info.customer_currency or DEFAULT_CURRENCY,
+                subtotalCents=stripe_customer_info.upcoming_invoice_subtotal,
+                planName=stripe_customer_info.plan_name,
                 planInterval=plan_interval,
+                discounts=[
+                    dict(id=x.id, name=x.get_display_name(), discountCents=x.amount,)
+                    for x in discounts
+                ],
             ),
             billingEmail=stripe_customer_info.customer_email,
             contactEmails=account.contact_emails,
             customerName=stripe_customer_info.customer_name,
             customerAddress=customer_address,
-            cardInfo=f"{stripe_customer_info.payment_method_card_brand.title()} ({stripe_customer_info.payment_method_card_last4})",
             viewerIsOrgOwner=request.user.is_admin(account),
             viewerCanModify=request.user.can_edit_subscription(account),
             limitBillingAccessToOwners=account.limit_billing_access_to_owners,
@@ -220,65 +223,6 @@ def start_trial(request: HttpRequest, team_id: str) -> HttpResponse:
     account = get_account_or_404(team_id=team_id, user=request.user)
     billing_email = request.POST["billingEmail"]
     account.start_trial(request.user, billing_email=billing_email)
-    return HttpResponse(status=204)
-
-
-class UpdateSubscriptionModel(pydantic.BaseModel):
-    seats: int
-    prorationTimestamp: int
-    planPeriod: Literal["month", "year"] = "month"
-
-
-@auth.login_required
-def update_subscription(request: HttpRequest, team_id: str) -> HttpResponse:
-    payload = UpdateSubscriptionModel.parse_obj(request.POST.dict())
-    account = get_account_or_404(team_id=team_id, user=request.user)
-    if not request.user.can_edit_subscription(account):
-        raise PermissionDenied
-    stripe_customer_info = account.stripe_customer_info()
-    if stripe_customer_info is None:
-        raise UnprocessableEntity("Subscription does not exist to modify.")
-
-    subscription = stripe.Subscription.retrieve(stripe_customer_info.subscription_id)
-    updated_subscription = stripe.Subscription.modify(
-        subscription.id,
-        items=[
-            {
-                "id": subscription["items"]["data"][0].id,
-                "plan": plan_id_from_period(period=payload.planPeriod),
-                "quantity": payload.seats,
-            }
-        ],
-        proration_date=payload.prorationTimestamp,
-    )
-    # we only need to manually created invoices when a user modifies their
-    # subscription within the same billing period.
-    if payload.planPeriod == subscription.plan.interval:
-        # when we upgrade a users plan Stripe will charge them on their next billing
-        # cycle. To make Stripe charge for the upgrade immediately we must create an
-        # invoice and pay it. If we don't pay the invoice Stripe will wait 1 hour
-        # before attempting to charge user.
-        invoice = stripe.Invoice.create(
-            customer=stripe_customer_info.customer_id, auto_advance=True
-        )
-        # we must specify the payment method because our Stripe customers don't have
-        # a default payment method, so the default invoicing will fail.
-        stripe.Invoice.pay(
-            invoice.id, payment_method=subscription.default_payment_method
-        )
-    stripe_customer_info.plan_amount = updated_subscription.plan.amount
-    stripe_customer_info.plan_interval = updated_subscription.plan.interval
-
-    stripe_customer_info.subscription_quantity = updated_subscription.quantity
-    stripe_customer_info.subscription_current_period_end = (
-        updated_subscription.current_period_end
-    )
-    stripe_customer_info.subscription_current_period_start = (
-        updated_subscription.current_period_start
-    )
-    stripe_customer_info.save()
-    account.update_bot()
-
     return HttpResponse(status=204)
 
 
@@ -427,18 +371,6 @@ def modify_payment_details(request: HttpRequest, team_id: str) -> HttpResponse:
 
 
 @auth.login_required
-def cancel_subscription(request: HttpRequest, team_id: str) -> HttpResponse:
-    account = get_account_or_404(team_id=team_id, user=request.user)
-    if not request.user.can_edit_subscription(account):
-        raise PermissionDenied
-
-    customer_info = account.stripe_customer_info()
-    if customer_info is not None:
-        customer_info.cancel_subscription()
-    return HttpResponse(status=204)
-
-
-@auth.login_required
 @require_http_methods(["GET"])
 def get_subscription_info(request: HttpRequest, team_id: str) -> JsonResponse:
     account = get_account_or_404(team_id=team_id, user=request.user)
@@ -479,34 +411,6 @@ def plan_id_from_period(period: Literal["month", "year"]) -> str:
     if period == "year":
         return cast(str, settings.STRIPE_ANNUAL_PLAN_ID)
     return None
-
-
-class FetchProrationModal(pydantic.BaseModel):
-    subscriptionQuantity: int
-    subscriptionPeriod: Literal["month", "year"] = "month"
-
-
-@auth.login_required
-def fetch_proration(request: HttpRequest, team_id: str) -> HttpResponse:
-    payload = FetchProrationModal.parse_obj(request.POST.dict())
-    account = get_account_or_404(user=request.user, team_id=team_id)
-
-    stripe_plan_id = plan_id_from_period(period=payload.subscriptionPeriod)
-
-    customer_info = account.stripe_customer_info()
-    if customer_info is not None:
-        proration_date = int(time.time())
-        return JsonResponse(
-            dict(
-                proratedCost=customer_info.preview_proration(
-                    timestamp=proration_date,
-                    subscription_quantity=payload.subscriptionQuantity,
-                    plan_id=stripe_plan_id,
-                ),
-                prorationTime=proration_date,
-            )
-        )
-    return HttpResponse(status=500)
 
 
 def stripe_webhook_handler(request: HttpRequest) -> HttpResponse:
@@ -554,13 +458,8 @@ def stripe_webhook_handler(request: HttpRequest) -> HttpResponse:
             subscription = stripe.Subscription.retrieve(
                 stripe_customer_info.subscription_id
             )
-            payment_method = stripe.PaymentMethod.retrieve(
-                subscription.default_payment_method
-            )
             stripe_customer_info.update_from(
-                customer=customer,
-                subscription=subscription,
-                payment_method=payment_method,
+                customer=customer, subscription=subscription,
             )
         elif checkout_session.mode == "subscription":
             # subscription occurs after a user creates a subscription through
@@ -568,9 +467,6 @@ def stripe_webhook_handler(request: HttpRequest) -> HttpResponse:
             account = Account.objects.get(id=checkout_session.client_reference_id)
             subscription = stripe.Subscription.retrieve(checkout_session.subscription)
             customer = stripe.Customer.retrieve(checkout_session.customer)
-            payment_method = stripe.PaymentMethod.retrieve(
-                subscription.default_payment_method
-            )
 
             account.update_from(customer=customer)
 
@@ -583,9 +479,7 @@ def stripe_webhook_handler(request: HttpRequest) -> HttpResponse:
                     customer_id=customer.id
                 )
             stripe_customer_info.update_from(
-                subscription=subscription,
-                customer=customer,
-                payment_method=payment_method,
+                subscription=subscription, customer=customer,
             )
         else:
             raise BadRequest
@@ -629,7 +523,8 @@ def stripe_webhook_handler(request: HttpRequest) -> HttpResponse:
         if stripe_customer_info is None:
             logger.warning("customer.update event for unknown customer %s", event)
             raise BadRequest
-        stripe_customer_info.update_from(customer=customer)
+        sub = stripe.Subscription.retrieve(stripe_customer_info.subscription_id)
+        stripe_customer_info.update_from(customer=customer, subscription=sub)
 
     else:
         # Unexpected event type
