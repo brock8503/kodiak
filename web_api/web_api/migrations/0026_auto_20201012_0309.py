@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('web_api', '0025_auto_20200902_0052'),
+        ("web_api", "0025_auto_20200902_0052"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='stripecustomerinformation',
-            name='plan_name',
-            field=models.CharField(default='Kodiak Seat License', max_length=255),
+            model_name="stripecustomerinformation",
+            name="plan_name",
+            field=models.CharField(default="Kodiak Seat License", max_length=255),
         ),
         migrations.AddField(
-            model_name='stripecustomerinformation',
-            name='upcoming_invoice_subtotal',
+            model_name="stripecustomerinformation",
+            name="upcoming_invoice_subtotal",
             field=models.IntegerField(default=0),
         ),
         migrations.AddField(
-            model_name='stripecustomerinformation',
-            name='upcoming_invoice_total',
+            model_name="stripecustomerinformation",
+            name="upcoming_invoice_total",
             field=models.IntegerField(default=0),
         ),
     ]

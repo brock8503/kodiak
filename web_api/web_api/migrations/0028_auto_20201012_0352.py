@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('web_api', '0027_stripediscount'),
+        ("web_api", "0027_stripediscount"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='stripediscount',
-            name='amount_off',
+            model_name="stripediscount",
+            name="amount_off",
             field=models.IntegerField(null=True),
         ),
         migrations.AlterField(
-            model_name='stripediscount',
-            name='duration_in_months',
+            model_name="stripediscount",
+            name="duration_in_months",
             field=models.IntegerField(null=True),
         ),
         migrations.AlterField(
-            model_name='stripediscount',
-            name='percent_off',
+            model_name="stripediscount",
+            name="percent_off",
             field=models.FloatField(null=True),
         ),
     ]

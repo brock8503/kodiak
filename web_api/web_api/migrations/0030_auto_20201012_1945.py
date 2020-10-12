@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('web_api', '0029_auto_20201012_1920'),
+        ("web_api", "0029_auto_20201012_1920"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='stripecustomerinformation',
-            name='plan_name',
+            model_name="stripecustomerinformation",
+            name="plan_name",
             field=models.CharField(max_length=255),
         ),
         migrations.AlterField(
-            model_name='stripecustomerinformation',
-            name='upcoming_invoice_subtotal',
+            model_name="stripecustomerinformation",
+            name="upcoming_invoice_subtotal",
             field=models.IntegerField(),
         ),
         migrations.AlterField(
-            model_name='stripecustomerinformation',
-            name='upcoming_invoice_total',
+            model_name="stripecustomerinformation",
+            name="upcoming_invoice_total",
             field=models.IntegerField(),
         ),
     ]

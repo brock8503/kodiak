@@ -6,24 +6,37 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('web_api', '0026_auto_20201012_0309'),
+        ("web_api", "0026_auto_20201012_0309"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='StripeDiscount',
+            name="StripeDiscount",
             fields=[
-                ('id', models.CharField(db_index=True, help_text='Unique identifier for Stripe Discount object.', max_length=255, primary_key=True, serialize=False, unique=True)),
-                ('amount', models.IntegerField(help_text='amount is cents this discount counts for the next invoice.')),
-                ('customer_id', models.CharField(db_index=True, max_length=255)),
-                ('duration', models.CharField(max_length=255)),
-                ('duration_in_months', models.IntegerField()),
-                ('name', models.CharField(max_length=255)),
-                ('percent_off', models.FloatField()),
-                ('amount_off', models.IntegerField()),
+                (
+                    "id",
+                    models.CharField(
+                        db_index=True,
+                        help_text="Unique identifier for Stripe Discount object.",
+                        max_length=255,
+                        primary_key=True,
+                        serialize=False,
+                        unique=True,
+                    ),
+                ),
+                (
+                    "amount",
+                    models.IntegerField(
+                        help_text="amount is cents this discount counts for the next invoice."
+                    ),
+                ),
+                ("customer_id", models.CharField(db_index=True, max_length=255)),
+                ("duration", models.CharField(max_length=255)),
+                ("duration_in_months", models.IntegerField()),
+                ("name", models.CharField(max_length=255)),
+                ("percent_off", models.FloatField()),
+                ("amount_off", models.IntegerField()),
             ],
-            options={
-                'db_table': 'stripe_discount',
-            },
+            options={"db_table": "stripe_discount",},
         ),
     ]
