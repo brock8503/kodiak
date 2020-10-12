@@ -1475,9 +1475,7 @@ def test_stripe_webhook_handler_checkout_session_complete_subscription(
         },
         "fake-key",
     )
-    product_retrieve = mocker.patch(
-        "web_api.views.stripe.Product.retrieve", return_value=fake_product
-    )
+    mocker.patch("web_api.views.stripe.Product.retrieve", return_value=fake_product)
     fake_invoice = stripe.Invoice.construct_from(
         {
             "object": "invoice",
@@ -1520,9 +1518,7 @@ def test_stripe_webhook_handler_checkout_session_complete_subscription(
         },
         "fake-key",
     )
-    invoice_upcoming = mocker.patch(
-        "web_api.views.stripe.Invoice.upcoming", return_value=fake_invoice
-    )
+    mocker.patch("web_api.views.stripe.Invoice.upcoming", return_value=fake_invoice)
 
     account = Account.objects.create(
         github_installation_id=377930,
@@ -2024,7 +2020,7 @@ def test_stripe_webhook_handler_customer_updated(mocker: Any) -> None:
         ),
         "fake-key",
     )
-    subscription_retrieve = mocker.patch(
+    mocker.patch(
         "web_api.views.stripe.Subscription.retrieve", return_value=fake_subscription
     )
     fake_product = stripe.Product.construct_from(
@@ -2046,9 +2042,7 @@ def test_stripe_webhook_handler_customer_updated(mocker: Any) -> None:
         },
         "fake-key",
     )
-    product_retrieve = mocker.patch(
-        "web_api.views.stripe.Product.retrieve", return_value=fake_product
-    )
+    mocker.patch("web_api.views.stripe.Product.retrieve", return_value=fake_product)
     fake_invoice = stripe.Invoice.construct_from(
         {
             "object": "invoice",
@@ -2091,9 +2085,7 @@ def test_stripe_webhook_handler_customer_updated(mocker: Any) -> None:
         },
         "fake-key",
     )
-    invoice_upcoming = mocker.patch(
-        "web_api.views.stripe.Invoice.upcoming", return_value=fake_invoice
-    )
+    mocker.patch("web_api.views.stripe.Invoice.upcoming", return_value=fake_invoice)
     patched_update_bot = mocker.patch(
         "web_api.models.Account.update_bot", spec=Account.update_bot
     )
@@ -2194,7 +2186,7 @@ def test_stripe_webhook_handler_customer_updated_with_address(mocker: Any) -> No
         ),
         "fake-key",
     )
-    subscription_retrieve = mocker.patch(
+    mocker.patch(
         "web_api.views.stripe.Subscription.retrieve", return_value=fake_subscription
     )
     fake_product = stripe.Product.construct_from(
@@ -2216,9 +2208,7 @@ def test_stripe_webhook_handler_customer_updated_with_address(mocker: Any) -> No
         },
         "fake-key",
     )
-    product_retrieve = mocker.patch(
-        "web_api.views.stripe.Product.retrieve", return_value=fake_product
-    )
+    mocker.patch("web_api.views.stripe.Product.retrieve", return_value=fake_product)
     fake_invoice = stripe.Invoice.construct_from(
         {
             "object": "invoice",
@@ -2261,9 +2251,7 @@ def test_stripe_webhook_handler_customer_updated_with_address(mocker: Any) -> No
         },
         "fake-key",
     )
-    invoice_upcoming = mocker.patch(
-        "web_api.views.stripe.Invoice.upcoming", return_value=fake_invoice
-    )
+    mocker.patch("web_api.views.stripe.Invoice.upcoming", return_value=fake_invoice)
     patched_update_bot = mocker.patch(
         "web_api.models.Account.update_bot", spec=Account.update_bot
     )
