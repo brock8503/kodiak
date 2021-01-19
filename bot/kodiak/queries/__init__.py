@@ -648,6 +648,7 @@ def get_valid_merge_methods(*, repo: Dict[str, Any]) -> List[MergeMethod]:
 
     if repo.get("rebaseMergeAllowed"):
         valid_merge_methods.append(MergeMethod.rebase)
+        valid_merge_methods.append(MergeMethod.rebaseff)
 
     if repo.get("squashMergeAllowed"):
         valid_merge_methods.append(MergeMethod.squash)
