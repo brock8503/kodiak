@@ -4,4 +4,6 @@ version = 1
 title = "pull_request_title"
 body = "pull_request_body"
 
-merge.method = "rebase-ff"
+[merge]
+method = "rebase-ff"
+
