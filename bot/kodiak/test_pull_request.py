@@ -358,7 +358,7 @@ async def test_pr_v2_add_label_service_unavailable() -> None:
 @pytest.mark.asyncio
 async def test_pr_v2_remove_label_ok() -> None:
     """
-    Check that remove_label works when 
+    Check that remove_label works when
     """
     client = create_client()
     client.delete_label.response = create_response(content=b"", status_code=204)

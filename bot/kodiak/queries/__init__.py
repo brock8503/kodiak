@@ -1051,12 +1051,16 @@ class Client:
             # teams who use the sha to correlate CI runs between multiple environments
             # and deployments. Without a fast-forward merge it's much harder to determine
             # if a test environment validated the code at the tip of the base ref.
+            logger.info.message("fast-forward merge")
             url_base = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{self.pr.baseRefName}")
             url_head = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{self.pr.headRefName}")
             async with self.throttler:
                 sha = await self.session.get(url_head, headers=headers)
             async with self.throttler:
-                return await self.session.patch(url_base, headers=headers, json=sha)
+                response = await self.session.patch(url_base, headers=headers, json=sha)
+                logger.info.message("fast-forward merge done")
+                return response
+
         else:
             url = conf.v3_url(f"/repos/{self.owner}/{self.repo}/pulls/{number}/merge")
             async with self.throttler:
