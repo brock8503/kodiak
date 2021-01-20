@@ -1031,6 +1031,8 @@ class Client:
         self,
         number: int,
         merge_method: str,
+        base: str,
+        branch: str,
         commit_title: Optional[str],
         commit_message: Optional[str],
     ) -> http.Response:
@@ -1039,7 +1041,7 @@ class Client:
         # are null because GitHub will error saying the title/message cannot be
         # null. When the keys are not passed, GitHub creates a title and
         # message.
-        self.log.info("merge method", merge_method=merge_method, self=self)
+        self.log.info("merge method", merge_method=merge_method)
         if commit_title is not None:
             body["commit_title"] = commit_title
         if commit_message is not None:
@@ -1053,13 +1055,13 @@ class Client:
             # teams who use the sha to correlate CI runs between multiple environments
             # and deployments. Without a fast-forward merge it's much harder to determine
             # if a test environment validated the code at the tip of the base ref.
-            url_base = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{self.pr.baseRefName}")
-            url_head = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{self.pr.headRefName}")
+            url_base = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{base}")
+            url_head = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{branch}")
             async with self.throttler:
                 sha = await self.session.get(url_head, headers=headers)
             async with self.throttler:
                 response = await self.session.patch(url_base, headers=headers, json=sha)
-                self.log.info("fast-forward merge")
+                self.log.info("fast-forward merge done", response=response)
                 return response
         else:
             url = conf.v3_url(f"/repos/{self.owner}/{self.repo}/pulls/{number}/merge")
