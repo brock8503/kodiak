@@ -1031,6 +1031,8 @@ class Client:
         self,
         number: int,
         merge_method: str,
+        base: str,
+        branch: str,
         commit_title: Optional[str],
         commit_message: Optional[str],
     ) -> http.Response:
@@ -1053,8 +1055,8 @@ class Client:
             # teams who use the sha to correlate CI runs between multiple environments
             # and deployments. Without a fast-forward merge it's much harder to determine
             # if a test environment validated the code at the tip of the base ref.
-            url_base = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{self.pr.baseRefName}")
-            url_head = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{self.pr.headRefName}")
+            url_base = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{self.base}")
+            url_head = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{self.branch}")
             async with self.throttler:
                 sha = await self.session.get(url_head, headers=headers)
             async with self.throttler:
