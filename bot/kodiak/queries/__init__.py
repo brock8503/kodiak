@@ -1039,12 +1039,14 @@ class Client:
         # are null because GitHub will error saying the title/message cannot be
         # null. When the keys are not passed, GitHub creates a title and
         # message.
+        self.log.info("merge method", merge_method=merge_method, self=self)
         if commit_title is not None:
             body["commit_title"] = commit_title
         if commit_message is not None:
             body["commit_message"] = commit_message
         headers = await get_headers(installation_id=self.installation_id)
         if merge_method == "rebase-ff":
+            self.log.info("fast-forward merge")
             # Github documentation is a bit misleading https://github.community/t/rebase-and-merge-does-not-fast-forward/129390
             # there is no way to fast-foward merge through the pull_request api
             # Instead we can manually update the base refs. This is important for
@@ -1056,7 +1058,9 @@ class Client:
             async with self.throttler:
                 sha = await self.session.get(url_head, headers=headers)
             async with self.throttler:
-                return await self.session.patch(url_base, headers=headers, json=sha)
+                response = await self.session.patch(url_base, headers=headers, json=sha)
+                self.log.info("fast-forward merge")
+                return response
         else:
             url = conf.v3_url(f"/repos/{self.owner}/{self.repo}/pulls/{number}/merge")
             async with self.throttler:
