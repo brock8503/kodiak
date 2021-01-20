@@ -1060,11 +1060,11 @@ class Client:
             self.log.info("fast-forward url", url_base=url_base, url_head=url_head)
             async with self.throttler:
                 res = await self.session.get(url_head, headers=headers)
-                self.log.info("fast-forward shw", sha=res.json()["object"]["sha"])
+                self.log.info("fast-forward sha", sha=res.json()["object"]["sha"])
             async with self.throttler:
                 sha=res.json()["object"]["sha"]
-                response = await self.session.patch(url_base, headers=headers, json=sha)
-                self.log.info("fast-forward merge done", response=response, sha=sha)
+                response = await self.session.patch(url_base, headers=headers, json=dict(sha=sha))
+                self.log.info("fast-forward merge done", response=response, sha=dict(sha=sha))
                 return response
         else:
             url = conf.v3_url(f"/repos/{self.owner}/{self.repo}/pulls/{number}/merge")
