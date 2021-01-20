@@ -1057,8 +1057,10 @@ class Client:
             # if a test environment validated the code at the tip of the base ref.
             url_base = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{base}")
             url_head = conf.v3_url(f"/repos/{self.owner}/{self.repo}/git/refs/heads/{branch}")
+            self.log.info("fast-forward url", url_base=url_base, url_head=url_head)
             async with self.throttler:
                 sha = await self.session.get(url_head, headers=headers)
+                self.log.info("fast-forward shw", sha=sha)
             async with self.throttler:
                 response = await self.session.patch(url_base, headers=headers, json=sha)
                 self.log.info("fast-forward merge done", response=response)
