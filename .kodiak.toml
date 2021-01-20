@@ -6,3 +6,4 @@ body = "pull_request_body"
 
 [merge]
 method = "rebase-ff"
+
