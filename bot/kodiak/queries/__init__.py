@@ -1061,7 +1061,7 @@ class Client:
                 sha = await self.session.get(url_head, headers=headers)
             async with self.throttler:
                 response = await self.session.patch(url_base, headers=headers, json=sha)
-                self.log.info("fast-forward merge")
+                self.log.info("fast-forward merge", response=response)
                 return response
         else:
             url = conf.v3_url(f"/repos/{self.owner}/{self.repo}/pulls/{number}/merge")
